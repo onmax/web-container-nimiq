@@ -19,7 +19,7 @@ const files = {
   },
   'nimiq-test.js': {
     file: {
-      contents: `import * as Nimiq from '@nimiq/core'
+      contents: `import init, { ClientConfiguration, Client } from '@nimiq/core'
 
 console.log('🚀 Starting Nimiq Core v2 test...')
 
@@ -27,32 +27,17 @@ try {
   console.log('📦 Initializing Nimiq Core...')
   
   // Initialize Nimiq Core
-  await Nimiq.default()
+  await init()
   console.log('✅ Nimiq Core initialized successfully')
   
-  console.log('🌐 Setting up network configuration...')
+  console.log('Configuration')
+  const config = new ClientConfiguration()
+  config.network('TestAlbatross')
+  config.logLevel('debug')
+
+  console.log('🌐 Creating Nimiq client...')
   
-  // Configure for testnet
-  const config = new Nimiq.ClientConfiguration()
-  config.network('testalbatross')
-  config.seedNodes([
-    '/dns4/seed1.pos.nimiq-testnet.com/tcp/8443/wss',
-    '/dns4/seed2.pos.nimiq-testnet.com/tcp/8443/wss',
-    '/dns4/seed3.pos.nimiq-testnet.com/tcp/8443/wss',
-    '/dns4/seed4.pos.nimiq-testnet.com/tcp/8443/wss',
-  ])
-  config.syncMode('pico')
-  
-  console.log('📊 Creating Nimiq client...')
-  console.log('Config:', config.build())
-  
-  // Create client with timeout (30 seconds)
-  const client = await Promise.race([
-    Nimiq.Client.create(config.build()),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Client creation timeout after 30s')), 30000)
-    )
-  ])
+  const client = Client.create(config.build())
   
   console.log('✅ Nimiq client created successfully')
   console.log('📊 Client type:', typeof client)
@@ -136,9 +121,7 @@ let webcontainerInstance = null
 // DOM elements
 const statusEl = document.getElementById('status')
 const outputEl = document.getElementById('output')
-const bootBtn = document.getElementById('bootBtn')
-const installBtn = document.getElementById('installBtn')
-const runNimiqBtn = document.getElementById('runNimiqBtn')
+const startTestBtn = document.getElementById('startTestBtn')
 const clearBtn = document.getElementById('clearBtn')
 
 // Utility functions
@@ -156,50 +139,42 @@ function clearOutput() {
   outputEl.textContent = ''
 }
 
-// WebContainer operations
-async function bootWebContainer() {
+
+
+// Combined function to run all operations
+async function runCompleteNimiqTest() {
+  if (startTestBtn.disabled) return
+  
   try {
-    updateStatus('Booting WebContainer...', 'info')
-    addOutput('🚀 Starting WebContainer boot process...')
+    // Disable the button during execution
+    startTestBtn.disabled = true
+    startTestBtn.textContent = 'Running...'
     
-    // Boot WebContainer
+    addOutput('🚀 Starting complete Nimiq test process...')
+    addOutput('')
+    
+    // Step 1: Boot WebContainer
+    updateStatus('Booting WebContainer...', 'info')
+    addOutput('🚀 Step 1: Starting WebContainer boot process...')
+    
     webcontainerInstance = await WebContainer.boot()
     addOutput('✅ WebContainer booted successfully')
     
-    // Mount files
     addOutput('📁 Mounting project files...')
     await webcontainerInstance.mount(files)
     addOutput('✅ Files mounted successfully')
     
-    // Listen for process outputs
     webcontainerInstance.on('server-ready', (port, url) => {
       addOutput(`🌐 Server ready on port ${port}: ${url}`)
     })
     
-    updateStatus('WebContainer ready!', 'success')
-    bootBtn.disabled = true
-    installBtn.disabled = false
+    addOutput('')
     
-  } catch (error) {
-    const errorMsg = `Failed to boot WebContainer: ${error.message}`
-    updateStatus(errorMsg, 'error')
-    addOutput(`❌ ${errorMsg}`)
-    console.error(error)
-  }
-}
-
-async function installDependencies() {
-  if (!webcontainerInstance) {
-    updateStatus('WebContainer not ready', 'error')
-    return
-  }
-  
-  try {
+    // Step 2: Install Dependencies
     updateStatus('Installing dependencies...', 'info')
-    addOutput('📦 Installing dependencies...')
-    
-    // Use npm directly instead of pnpm to avoid global installation issues
+    addOutput('📦 Step 2: Installing dependencies...')
     addOutput('📥 Installing project dependencies with npm...')
+    
     const installProcess = await webcontainerInstance.spawn('npm', ['install'])
     
     installProcess.output.pipeTo(new WritableStream({
@@ -208,33 +183,17 @@ async function installDependencies() {
       }
     }))
     
-    const exitCode = await installProcess.exit
-    if (exitCode !== 0) {
-      throw new Error(`Dependencies installation failed with exit code ${exitCode}`)
+    const installExitCode = await installProcess.exit
+    if (installExitCode !== 0) {
+      throw new Error(`Dependencies installation failed with exit code ${installExitCode}`)
     }
     
     addOutput('✅ Dependencies installed successfully')
-    updateStatus('Dependencies installed!', 'success')
-    installBtn.disabled = true
-    runNimiqBtn.disabled = false
+    addOutput('')
     
-  } catch (error) {
-    const errorMsg = `Failed to install dependencies: ${error.message}`
-    updateStatus(errorMsg, 'error')
-    addOutput(`❌ ${errorMsg}`)
-    console.error(error)
-  }
-}
-
-async function runNimiqTest() {
-  if (!webcontainerInstance) {
-    updateStatus('WebContainer not ready', 'error')
-    return
-  }
-  
-  try {
+    // Step 3: Run Nimiq Test
     updateStatus('Running Nimiq test...', 'info')
-            addOutput('🧪 Starting Nimiq Core v2 test...')
+    addOutput('🧪 Step 3: Starting Nimiq Core v2 test...')
     
     const testProcess = await webcontainerInstance.spawn('npm', ['run', 'dev'])
     
@@ -244,27 +203,29 @@ async function runNimiqTest() {
       }
     }))
     
-    const exitCode = await testProcess.exit
-    if (exitCode === 0) {
+    const testExitCode = await testProcess.exit
+    if (testExitCode === 0) {
       updateStatus('Nimiq test completed successfully!', 'success')
-      addOutput('🎉 Test completed successfully!')
+      addOutput('🎉 Complete test process finished successfully!')
     } else {
-      updateStatus(`Nimiq test failed with exit code ${exitCode}`, 'error')
-      addOutput(`❌ Test failed with exit code ${exitCode}`)
+      updateStatus(`Nimiq test failed with exit code ${testExitCode}`, 'error')
+      addOutput(`❌ Test failed with exit code ${testExitCode}`)
     }
     
   } catch (error) {
-    const errorMsg = `Failed to run Nimiq test: ${error.message}`
+    const errorMsg = `Failed during test process: ${error.message}`
     updateStatus(errorMsg, 'error')
     addOutput(`❌ ${errorMsg}`)
     console.error(error)
+  } finally {
+    // Re-enable the button
+    startTestBtn.disabled = false
+    startTestBtn.textContent = 'Start Nimiq Test'
   }
 }
 
 // Event listeners
-bootBtn.addEventListener('click', bootWebContainer)
-installBtn.addEventListener('click', installDependencies)
-runNimiqBtn.addEventListener('click', runNimiqTest)
+startTestBtn.addEventListener('click', runCompleteNimiqTest)
 clearBtn.addEventListener('click', clearOutput)
 
 // Diagnostic function to check browser capabilities
@@ -341,7 +302,7 @@ async function checkWebContainerSupport() {
     addOutput('3. Try opening in a new tab (not iframe)')
     addOutput('4. Disable browser extensions temporarily')
     addOutput('5. Check browser console for additional errors')
-    bootBtn.disabled = true
+    startTestBtn.disabled = true
   }
 }
 

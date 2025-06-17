@@ -19,7 +19,10 @@ const files = {
   },
   'nimiq-test.js': {
     file: {
-      contents: `console.log('🚀 Starting Nimiq Node Sync...')
+      contents: `
+import { Address, BufferUtils, Client, ClientConfiguration, KeyPair, PrivateKey, TransactionBuilder } from "@nimiq/core";      
+      
+console.log('🚀 Starting Nimiq Node Sync...')
 
 async function syncWithNimiq() {
   try {
@@ -29,13 +32,14 @@ async function syncWithNimiq() {
     console.log('✅ Nimiq Core loaded')
     
     // Configure client for TestAlbatross network
-    const config = new Nimiq.ClientConfiguration()
-    config.network('testalbatross')
+    const config = new ClientConfiguration()
+    config.network('TestAlbatross')
+    config.seedNodes(['/dns4/seed1.pos.nimiq-testnet.com/tcp/8443/wss'])
     config.logLevel('info')
     
     // Create client
     console.log('🌐 Creating Nimiq client...')
-    const client = await Nimiq.Client.create(config.build())
+    const client = await Client.create(config.build())
     console.log('✅ Client created')
     
     // Wait for consensus to be established
@@ -122,6 +126,7 @@ let webcontainerInstance = null
 const statusEl = document.getElementById('status')
 const outputEl = document.getElementById('output')
 const startTestBtn = document.getElementById('startTestBtn')
+const syncBtn = document.getElementById('syncBtn')
 const clearBtn = document.getElementById('clearBtn')
 
 // Utility functions
@@ -222,8 +227,96 @@ async function runCompleteNimiqTest() {
   }
 }
 
+// Simplified sync function for direct web client connection
+async function syncWithWebClient() {
+  if (syncBtn.disabled) return
+  
+  try {
+    // Disable the button during execution
+    syncBtn.disabled = true
+    syncBtn.textContent = 'Syncing...'
+    
+    updateStatus('Initializing web client sync...', 'info')
+    addOutput('🔄 Starting Nimiq web client sync...')
+    addOutput('')
+    
+    // Dynamically import Nimiq Core
+    addOutput('📦 Loading Nimiq Core...')
+    const { Client, ClientConfiguration } = await import('@nimiq/core')
+    addOutput('✅ Nimiq Core loaded successfully')
+    
+    // Configure client for TestAlbatross network
+    addOutput('⚙️ Configuring client for TestAlbatross network...')
+    const config = new ClientConfiguration()
+    config.network('TestAlbatross')
+    config.seedNodes(['/dns4/seed1.pos.nimiq-testnet.com/tcp/8443/wss'])
+    config.logLevel('info')
+    
+    // Create client
+    addOutput('🌐 Creating Nimiq client...')
+    const client = await Client.create(config.build())
+    addOutput('✅ Client created successfully')
+    
+    updateStatus('Establishing consensus...', 'info')
+    addOutput('⏳ Waiting for consensus to be established...')
+    
+    // Wait for consensus
+    await client.waitForConsensusEstablished()
+    addOutput('✅ Consensus established!')
+    
+    // Get network information
+    const networkId = await client.getNetworkId()
+    const headBlock = await client.getHeadBlock()
+    
+    addOutput('')
+    addOutput(`🌐 Network: ${networkId}`)
+    addOutput(`📈 Current block height: ${headBlock.height}`)
+    addOutput(`🔗 Head block hash: ${headBlock.hash}`)
+    addOutput('')
+    
+    updateStatus('Sync completed successfully!', 'success')
+    addOutput('🎉 Successfully synced with Nimiq web client!')
+    addOutput('✨ You are now connected to the TestAlbatross network')
+    
+    // Set up listeners for real-time updates
+    addOutput('🔔 Setting up real-time listeners...')
+    
+    // Listen for new blocks
+    client.addHeadChangedListener(async (blockHash) => {
+      try {
+        const block = await client.getBlock(blockHash)
+        addOutput(`🆕 New block: #${block.height} (${block.hash})`)
+      } catch (error) {
+        addOutput(`⚠️ Error getting block details: ${error.message}`)
+      }
+    })
+    
+    // Listen for peer changes
+    client.addPeerChangedListener((peerId, reason, peerCount) => {
+      addOutput(`👥 Peer count updated: ${peerCount} peers`)
+    })
+    
+    addOutput('✅ Real-time listeners activated')
+    addOutput('🔄 Monitoring network for new blocks and peer changes...')
+    
+    // Store client reference for potential cleanup
+    window.nimiqClient = client
+    
+  } catch (error) {
+    const errorMsg = `Sync failed: ${error.message}`
+    updateStatus(errorMsg, 'error')
+    addOutput(`❌ ${errorMsg}`)
+    console.error('Sync error:', error)
+  } finally {
+    // Re-enable the button
+    syncBtn.disabled = false
+    syncBtn.textContent = 'Sync with Web Client'
+  }
+}
+
 // Event listeners
 startTestBtn.addEventListener('click', runCompleteNimiqTest)
+syncBtn.addEventListener('click', syncWithWebClient)
 clearBtn.addEventListener('click', clearOutput)
 
 // Diagnostic function to check browser capabilities

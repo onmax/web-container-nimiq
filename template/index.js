@@ -1,20 +1,24 @@
+import { Address, BufferUtils, Client, ClientConfiguration, KeyPair, PrivateKey, TransactionBuilder } from "@nimiq/core";
+
 console.log('🚀 Starting Nimiq Node Sync...')
 
 async function syncWithNimiq() {
   try {
     // Dynamically import Nimiq Core (required for WASM modules)
     console.log('📦 Loading Nimiq Core...')
-    const Nimiq = await import('@nimiq/core')
+    // const Nimiq = await import('@nimiq/core')
     console.log('✅ Nimiq Core loaded')
     
     // Configure client for TestAlbatross network
-    const config = new Nimiq.ClientConfiguration()
-    config.network('testalbatross')
+    const config = new ClientConfiguration()
+    // config.network('testalbatross')
+    config.network('TestAlbatross')
+    // config.seedNodes(['/dns4/seed1.pos.nimiq-testnet.com/tcp/8443/wss'])
     config.logLevel('info')
     
     // Create client
     console.log('🌐 Creating Nimiq client...')
-    const client = await Nimiq.Client.create(config.build())
+    const client = await Client.create(config.build())
     console.log('✅ Client created')
     
     // Wait for consensus to be established

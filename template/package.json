@@ -6,10 +6,12 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "node index.js"
+    "dev": "node index-2.js",
+    "start:v2": "node index-2.js",
+    "dev:v2": "node index-2.js"
   },
   "dependencies": {
-    "@nimiq/core": "^2.0.0"
+    "@nimiq/core": "^2.1.0"
   },
   "keywords": ["nimiq", "blockchain", "sync"],
   "author": "",

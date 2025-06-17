@@ -19,91 +19,91 @@ const files = {
   },
   'nimiq-test.js': {
     file: {
-      contents: `import init, { ClientConfiguration, Client } from '@nimiq/core'
+      contents: `console.log('🚀 Starting Nimiq Node Sync...')
 
-console.log('🚀 Starting Nimiq Core v2 test...')
-
-try {
-  console.log('📦 Initializing Nimiq Core...')
-  
-  // Initialize Nimiq Core
-  await init()
-  console.log('✅ Nimiq Core initialized successfully')
-  
-  console.log('Configuration')
-  const config = new ClientConfiguration()
-  config.network('TestAlbatross')
-  config.logLevel('debug')
-
-  console.log('🌐 Creating Nimiq client...')
-  
-  const client = Client.create(config.build())
-  
-  console.log('✅ Nimiq client created successfully')
-  console.log('📊 Client type:', typeof client)
-  
-  // Get initial network info
-  console.log('🔗 Getting network information...')
-  const networkId = await client.getNetworkId()
-  console.log('🌐 Network ID:', networkId)
-  
-  const headBlock = await client.getHeadBlock()
-  console.log('📈 Current block height:', headBlock.height)
-  console.log('🔗 Head block hash:', headBlock.hash)
-  console.log('⏰ Head block timestamp:', new Date(headBlock.timestamp * 1000).toISOString())
-  
-  // Add consensus listener
-  let consensusEstablished = false
-  client.addConsensusChangedListener((consensus) => {
-    console.log('📊 Consensus state changed:', consensus)
-    if (consensus === 'established') {
-      consensusEstablished = true
-    }
-  })
-  
-  // Add peer listener
-  client.addPeerChangedListener((peerId, reason, peerCount) => {
-    console.log('👥 Peer count changed:', peerCount)
-  })
-  
-  // Add head changed listener
-  client.addHeadChangedListener(async (blockHash) => {
-    const block = await client.getBlock(blockHash)
-    console.log('🆕 New head block:', block.height, 'hash:', block.hash)
-  })
-  
-  // Wait for consensus to be established (with timeout)
-  console.log('⏳ Waiting for consensus to be established...')
-  const consensusTimeout = 60000 // 60 seconds
-  const startTime = Date.now()
-  
-  while (!consensusEstablished && (Date.now() - startTime) < consensusTimeout) {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log('⏳ Still waiting for consensus... (' + Math.floor((Date.now() - startTime) / 1000) + 's)')
-  }
-  
-  if (consensusEstablished) {
-    console.log('🎯 Consensus established!')
+async function syncWithNimiq() {
+  try {
+    // Dynamically import Nimiq Core (required for WASM modules)
+    console.log('📦 Loading Nimiq Core...')
+    const Nimiq = await import('@nimiq/core')
+    console.log('✅ Nimiq Core loaded')
     
-    // Get updated network info
-    const finalHeadBlock = await client.getHeadBlock()
-    console.log('📈 Final block height:', finalHeadBlock.height)
-    console.log('🔗 Final head block hash:', finalHeadBlock.hash)
-  } else {
-    console.log('⚠️  Consensus not established within timeout, but client is working')
+    // Configure client for TestAlbatross network
+    const config = new Nimiq.ClientConfiguration()
+    config.network('testalbatross')
+    config.logLevel('info')
+    
+    // Create client
+    console.log('🌐 Creating Nimiq client...')
+    const client = await Nimiq.Client.create(config.build())
+    console.log('✅ Client created')
+    
+    // Wait for consensus to be established
+    console.log('⏳ Waiting for consensus...')
+    await client.waitForConsensusEstablished()
+    console.log('✅ Consensus established')
+    
+    // Get network info
+    const networkId = await client.getNetworkId()
+    const headBlock = await client.getHeadBlock()
+    
+    console.log(\`🌐 Network: \${networkId}\`)
+    console.log(\`📈 Current block height: \${headBlock.height}\`)
+    console.log(\`🔗 Head block hash: \${headBlock.hash}\`)
+    
+    // Listen for consensus changes
+    client.addConsensusChangedListener((consensus) => {
+      console.log(\`📊 Consensus: \${consensus}\`)
+    })
+    
+    // Listen for new blocks
+    client.addHeadChangedListener(async (blockHash) => {
+      const block = await client.getBlock(blockHash)
+      console.log(\`🆕 New block: #\${block.height} (\${block.hash})\`)
+    })
+    
+    // Listen for peer changes
+    client.addPeerChangedListener((peerId, reason, peerCount) => {
+      console.log(\`👥 Peers: \${peerCount}\`)
+    })
+    
+    console.log('🔄 Syncing with network... (Press Ctrl+C to stop)')
+    
+    // Keep the process running in WebContainer context
+    let running = true
+    
+    // Simulate SIGINT handler for WebContainer
+    const cleanup = async () => {
+      console.log('\\n🛑 Shutting down...')
+      running = false
+      try {
+        await client.disconnectNetwork()
+      } catch (e) {
+        console.log('⚠️ Cleanup completed with warnings')
+      }
+    }
+    
+    // Keep alive with proper exit handling
+    let iterations = 0
+    while (running && iterations < 300) { // Run for max 5 minutes
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      iterations++
+      
+      // Auto-cleanup after 5 minutes to prevent infinite running in WebContainer
+      if (iterations >= 300) {
+        console.log('\\n⏰ Timeout reached, shutting down...')
+        await cleanup()
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Error:', error.message)
+    console.error('Stack:', error.stack)
+    process.exit(1)
   }
-  
-  console.log('🎉 Nimiq Core v2 test completed successfully!')
-  
-  // Cleanup
-  console.log('🧹 Cleaning up...')
-  await client.disconnectNetwork()
-  
-} catch (error) {
-  console.error('❌ Error during Nimiq test:', error)
-  console.error('Stack:', error.stack)
-  process.exit(1)
 }
+
+syncWithNimiq()
 `
     }
   },
@@ -138,8 +138,6 @@ function addOutput(text) {
 function clearOutput() {
   outputEl.textContent = ''
 }
-
-
 
 // Combined function to run all operations
 async function runCompleteNimiqTest() {

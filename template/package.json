@@ -1,0 +1,17 @@
+{
+  "name": "nimiq-node-sync",
+  "version": "1.0.0",
+  "description": "Minimal Node.js project to sync with Nimiq network",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "@nimiq/core": "^2.0.0"
+  },
+  "keywords": ["nimiq", "blockchain", "sync"],
+  "author": "",
+  "license": "MIT"
+} 

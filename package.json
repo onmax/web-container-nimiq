@@ -1,0 +1,17 @@
+{
+  "name": "webcontainer-nimiq-reproduction",
+  "version": "1.0.0",
+  "description": "Minimal reproduction for WebContainers with pnpm and Nimiq web client",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@webcontainer/api": "^1.1.9"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+} 
